@@ -2,6 +2,7 @@ import React from 'react';
 import { Terminal } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 import LanguageSelector from './LanguageSelector';
+import logo from '../assets/carriedo_logo.png';
 
 const Header = () => {
   const { t } = useLanguage();
@@ -29,7 +30,7 @@ const Header = () => {
             boxShadow: '0 0 10px rgba(0, 240, 255, 0.3)'
           }}>
             <img 
-              src="/carriedo_logo.png" 
+              src={logo} 
               alt="Logo" 
               style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
             />
