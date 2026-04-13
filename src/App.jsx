@@ -345,6 +345,29 @@ print("".join(chr(x) for x in hex_data))
 
 --> Flag: SoterCTF{Lluís_Domènech_i_Montaner}` },
   { id: 18, points: 10, flag: "SoterCTF{978098044c1848bb5e6fe02f5af0d672}", payload: "https://discord.gg/qfvhzhxTW9" },
+  { id: 20, points: 500, flag: "SoterCTF{ff12d12b60b168f6c7ac122c9bf2f5ba}", url: "https://kore.one/", payload: `# --- Malware Analysis: Soter Engineering Team ---
+# Original Writeup: https://kore.one/
+
+import base64
+from Crypto.Cipher import AES
+
+# 1. VBA macro emulation: extract base64 + apply fSx6 bit permutation 
+# 2. AES-192-CFB8 Decrypt payload:
+# Key: F0r3Ms1$c$s4r3C00l!!!  (Padded to 24 bytes)
+# IV: sotersoter\xbbsoter
+
+cipher = AES.new(key, AES.MODE_CFB, iv=iv, segment_size=8)
+dec = cipher.decrypt(ct)
+
+# 3. Important: The decrypted PowerShell bytes must be reversed.
+ps_inner = dec[::-1].decode('latin-1')
+
+# 4. Final Cleanup: Substitute remaining string tokens
+# ('65c','$'), ('LmU','"'), ('P30',"'"), ('GzX','\`'), ('y0C','|'), ('uB0','\\\\')
+
+# 5. Extract C2 Bot token and query Telegram API for recently forwarded stickers.
+# 6. Assemble flag visually from sticker WebP overlays.
+# Flag: SoterCTF{ff12d12b60b168f6c7ac122c9bf2f5ba}` },
   { id: 19, points: 150, flag: "SoterCTF{D3fen5E_s1ST3m_dI55aBled}", payload: `import base64
 
 encoded_flag = "U290ZXJDVEZ7RDNmZW41RV9zMVNUM21fZEk1NWFCbGVkfQ=="

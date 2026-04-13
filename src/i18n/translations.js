@@ -447,6 +447,34 @@ return Encoding.UTF8.GetString(bytes);
 Step 3 — Decode Base64 with Python
 (Check the Payload sector for the python script solution)`
       }
+,
+      {
+        id: 20, category: "Forensics",
+        name: "Soter engineering team",
+        description: "The SoterCTF team has shared the following study about the space elevator they've been working on for the planet GitaLand. We're sharing it in case you're interested in learning more about aerospace technology.\n\n(The file does not belong to SoterCTF; it is the property of the Universitat Politècnica de Catalunya. We have used it for educational purposes only and acknowledge all rights to its authors.)",
+        resolution: `Analysis and Reconnaissance
+The .doc file is an OLE Compound Document (Word 97-2003 format). We use olevba from the oletools suite to extract the embedded VBA macros. The payload automatically executes via Document_New and relies on WScript.Shell.Run.
+
+Exploitation Phase
+
+Step 1 — VBA Token Obfuscation \& Bit Permutation
+The macro contains single-byte character substitutions. After reversing these substitutions, the VBA code decodes Base64 payloads and applies a 32-bit bijective Feistel-like transform (fSx6). Porting this logic to Python allows us to decode the initial PowerShell command.
+
+Step 2 — AES Decryption & String Reversal
+The PowerShell payload contains an AES-192-CFB8 encrypted blob with a hardcoded key. Once decrypted using standard Python Crypto libraries, the text must be reversed and further deobfuscated by substituting certain format-string tokens manually (e.g., changing '65c' to '$').
+
+Step 3 — Reversing the Stealer Logic
+The core behavior is a WiFi credential stealer reading cleartext passwords using 'netsh wlan show profile'. It exfiltrates the stolen passwords to a Telegram bot via HTTP POST, giving us the exact Telegram C2 bot token and chat ID.
+
+Step 4 — C2 Analysis & Exfiltration Retrieval
+Using the recovered Bot Token, we query the Telegram API to list recent messages in the group. We find four sticker images sent immediately following an infection notification. Downloading these .webp files and visually inspecting them reveals flag pieces hidden in the images.
+
+Final Extraction
+Concatenating the sticker texts forms the flag: **SoterCTF{ff12d12b60b168f6c7ac122c9bf2f5ba}**.
+
+Lessons Learned
+Malware employs layered obfuscation techniques ranging from simple token replacement to standard cryptography (AES). Often, simple tricks like storing text reversed or using image-based exfiltration are highly effective anti-analysis hurdles.`
+      }
     ]
   },
   es: {
@@ -840,6 +868,35 @@ La Flag es simplemente texto codificado en Base64
 
 Paso 3 — Decodificar Base64 con Python
 (Revisa el bloque Payload para ver el script de obtención de la flag en Python)`
+      }
+,
+      {
+        id: 20, category: "Forense",
+        name: "Soter engineering team",
+        description: "El equipo de SoterCTF ha compartido el siguiente estudio sobre la construcción del ascensor espacial en el planeta GitaLand. Lo compartimos por si te interesa aprender de ingeniería aeroespacial.\n\n(El documento original no pertenece a SoterCTF, es propiedad de la UPC. Solo lo hemos usado con la intención de enseñar).",
+        resolution: `Análisis y Reconocimiento
+El reto entrega un archivo .7z que contiene un documento de Word (Space-Elevator-Prototype.doc). Al analizar macros usando la herramienta olevba, el análisis revela que el documento tiene una macro VBA que se ejecuta sola (Document_New) y lanza comandos de sistema.
+
+Fase de Explotación
+
+Paso 1 — Desofuscación de la Macro VBA
+La macro está protegida por dos capas. La Capa 1 es una sustitución de tokens donde letras comunes se cambian por cadenas. Al limpiarlo se revela una función (uJzeh). La Capa 2 limpia los tokens del payload en Base64, decodifica el Base64 y aplica una transformación matemática de permutación de bits de 32 bits (tipo Feistel). Esto nos genera un comando de PowerShell muy largo.
+
+Paso 2 — Descifrado del PowerShell
+El script de PowerShell está cifrado con AES-192-CFB8 usando una clave ('RjBy...') y un IV contenidos en el propio script. Tras descifrar el bloque con Python, el contenido sigue pareciendo basura porque el atacante invirtió el orden de los bytes. Al leerlo de atrás hacia adelante y limpiar caracteres como '65c' por '$', vemos el código real.
+
+Paso 3 — Análisis del C2 (Telegram)
+El malware resulta ser un ladrón de contraseñas WiFi ('netsh wlan show profile') que exfiltra todo a un Bot de Telegram. En el código del payload, extraemos el Token del Bot y el ID del Chat atacante.
+
+Paso 4 — C2 e Investigación del Flag
+Usamos las credenciales del bot interceptado para consultar los mensajes del grupo de Telegram a través de su API ('forwardMessage'). Descubrimos que el bot envió 4 stickers de frutas (Naranja, Cereza, Uva, Sandía).
+Al descargar y observar los stickers ('webp'), cada imagen tiene un fragmento de text en la esquina inferior.
+
+Obtención de la Flag
+Al ensamblar las piezas encontradas en el fondo de estrellas obtenemos: **SoterCTF{ff12d12b60b168f6c7ac122c9bf2f5ba}**.
+
+Lecciones Aprendidas
+La ofuscación por capas entrelazadas busca dificultar el análisis paso a paso. Herramientas poco convencionales (como voltear cadenas cifradas o enviar credenciales por stickers de Telegram) son tácticas reales y efectivas usadas en las redes de bots modernas.`
       }
     ]
   },
@@ -1271,6 +1328,35 @@ return Encoding.UTF8.GetString(bytes);
 
 Pas 3 — Descodificar Base64 amb Python
 (El script es troba al bloc inferior de Payload / Exploit)`
+      }
+,
+      {
+        id: 20, category: "Forense",
+        name: "Soter engineering team",
+        description: "L'equip de SoterCTF ha compartit el següent estudi sobre la construcció de l'ascensor espacial al planeta GitaLand. Ho compartim per si t'interessa aprendre d'enginyeria aeroespacial.\n\n(El document original no pertany a SoterCTF, és propietat de la UPC. Només l'hem utilitzat amb la intenció d'ensenyar).",
+        resolution: `Anàlisi i Reconeixement
+El repte lliura un arxiu .7z que conté un document de Word (Space-Elevator-Prototype.doc). En analitzar macros utilitzant l'eina olevba, l'anàlisi revela que el document té una macro VBA que s'executa sola (Document_New) i llança comandaments de sistema.
+
+Fase d'Explotació
+
+Pas 1 — Desofuscació de la Macro VBA
+La macro està protegida per dues capes. La Capa 1 és una substitució de tokens on les lletres comunes es canvien per cadenes. En netejar-ho es revela una funció (uJzeh). La Capa 2 neteja els tokens del payload en Base64, descodifica el Base64 i aplica una transformació matemàtica de permutació de bits de 32 bits (tipus Feistel). Això ens genera un comandament de PowerShell molt llarg.
+
+Pas 2 — Desxifrat del PowerShell
+L'script de PowerShell està xifrat amb AES-192-CFB8 utilitzant una clau ('RjBy...') i un IV continguts en el mateix script. Després de desxifrar el bloc amb Python, el contingut segueix semblant brossa perquè l'atacant va invertir l'ordre dels bytes. En llegir-ho de darrere cap endavant i netejar caràcters com '65c' per '$', veiem el codi real.
+
+Pas 3 — Anàlisi del C2 (Telegram)
+El malware resulta ser un lladre de contrasenyes WiFi ('netsh wlan show profile') que exfiltra tot a un Bot de Telegram. En el codi del payload, extraiem el Token del Bot i l'ID del Xat atacant.
+
+Pas 4 — C2 i Investigació de la Flag
+Utilitzem les credencials del bot interceptat per consultar els missatges del grup de Telegram a través de la seva API ('forwardMessage'). Descobrim que el bot va enviar 4 stickers de fruites (Taronja, Cirera, Raïm, Síndria).
+En descarregar i observar els stickers ('webp'), cada imatge té un fragment de text a la cantonada inferior.
+
+Obtenció de la Flag
+En acoblar les peces trobades al fons d'estrelles obtenim: **SoterCTF{ff12d12b60b168f6c7ac122c9bf2f5ba}**.
+
+Lliçons Apreses
+L'ofuscació per capes entrellaçades busca dificultar l'anàlisi pas a pas. Eines poc convencionals (com capgirar cadenes xifrades o enviar credencials per stickers de Telegram) són tàctiques reals i efectives utilitzades a les xarxes de bots modernes.`
       }
     ]
   }
