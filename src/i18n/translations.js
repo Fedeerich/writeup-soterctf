@@ -423,6 +423,29 @@ OSINT challenges involving image distortion test pattern recognition over raw da
         description: "Join the SoterCTF Discord server and find the flag hidden among the channels."
       },
       {
+        id: 21, category: "Web",
+        name: "Workshop",
+        description: "Kepler-9 Station runs a logistics API to manage spacecraft parts, orders, and support tickets. You've got demo credentials. Log in, explore the endpoints, and find out what the workshop is really hiding.\nhttp://173.212.252.46:1911/",
+        resolution: `Analysis and Reconnaissance
+The challenge presents a PHP 7.4 REST API protected by JWT-based authentication. We are given demo credentials (demo / demo) which grant us a valid JWT. The API exposes several endpoints, including a restricted '/private-area' endpoint.
+Reviewing the '/changelog' endpoint reveals that JKU support was recently added for token verification, pointing to a potential JWT Key Confusion vulnerability.
+
+Exploitation Phase
+
+Step 1 — JKU Header Injection
+The server validates RS256 tokens by fetching the JWKS from a URL specified in the JWT header's 'jku' claim. An allowlist restriction demands the URL to start with 'http://127.0.0.1'. We bypass this using the HTTP userinfo syntax: 'http://127.0.0.1@<ngrok-host>/jwks.json'. This allows us to host our own JWKS and sign arbitrary JWTs with our private RSA key.
+
+Step 2 — PHP Type Juggling
+While our forged token is now cryptographically valid, we still lack admin authorization to access the '/private-area'. Causing a PHP warning on the login endpoint reveals the server uses PHP 7.4. In PHP 7.x, the loose comparison '0 == "admin"' evaluates to true.
+We craft a malicious payload setting the 'usr' claim to the integer '0'.
+
+Final Extraction
+By combining both vulnerabilities, we send our forged JWT containing '{"usr": 0}' to the '/private-area' endpoint. The server accepts our signature via our external JWKS, and the authorization check passes due to type juggling, finally returning the flag: **SoterCTF{1fb24985e208058b28c708b2fe4ac251}**.
+
+Lessons Learned
+Using 'strpos' for external URL allowlists is dangerous because attackers can exploit URL parsing confusion (e.g., using '@' for authentication). Furthermore, security-sensitive checks must always use strict comparisons ('===') to prevent language-specific type coerced logic bugs.`
+      },
+      {
         id: 19, category: "Binary Exploitation",
         name: "The Space Man",
         description: "The ship has entered a critical state. During the journey, an automatic system failure activated the emergency protocol: total hibernation. All doors have been sealed. The central command reports the existence of two access cards needed to regain control... but the security system has hardened its defenses. Nothing responds. Everything is locked. Find the cards. Open the doors. Survive. And come home, comrade.",
@@ -845,6 +868,28 @@ Lecciones Aprendidas
 Los retos de OSINT con imágenes distorsionadas premian el reconocimiento de patrones frente a la extracción directa de datos. Identificar un estilo artístico o arquitectónico específico permite acotar rápidamente el área de búsqueda cuando los metadatos han sido eliminados.`
       },
       { id: 18, name: "Sanity check", category: "MISC", description: "Únete al servidor de Discord de SoterCTF y encuentra la flag escondida entre los canales. https://discord.gg/qfvhzhxTW9" },
+      {
+        id: 21, category: "Web",
+        name: "Workshop",
+        description: "La Estación Kepler-9 tiene una API de logística para gestionar piezas de naves, pedidos y tickets de soporte. Tienes credenciales de demo. Inicia sesión, explora los endpoints y descubre qué esconde realmente el workshop.\nhttp://173.212.252.46:1911/",
+        resolution: `Análisis y Reconocimiento
+El reto consiste en una API REST escrita en PHP 7.4, protegida por autenticación basada en JWT. Al iniciar sesión con las credenciales proporcionadas (demo / demo) obtenemos un token básico. El objetivo es acceder al endpoint restringido '/private-area'.
+Al consultar el historial de versiones en '/changelog', descubrimos que recientemente añadieron soporte para la cabecera 'jku' en los tokens, una pista clave que apunta a una vulnerabilidad de Inyección JKU (Key Confusion).
+
+Fase de Explotación
+
+Paso 1 — Inyección de Cabecera JKU
+El servidor valida las firmas obteniendo la clave pública desde la URL especificada en 'jku'. Su filtro de seguridad exige que la URL comience por 'http://127.0.0.1'. Sorprendentemente, podemos enviar una URL externa estructurándola como un usuario HTTP: 'http://127.0.0.1@<ngrok-host>/jwks.json'. De esta forma conseguimos que el servidor resuelva nuestro dominio y confíe en nuestras propias claves RSA para forjar cualquier token que queramos.
+
+Paso 2 — Manipulación de Tipos en PHP (Type Juggling)
+Nuestros tokens falsificados ahora son válidos criptográficamente, pero el chequeo de permisos ('$usr == "admin"') aún nos bloquea. Al forzar un error, identificamos la versión PHP 7.4. En estas versiones, debido a una conversión interna (Type Juggling), la comparación laxa '0 == "admin"' devuelve verdadero al comparar un número entero con una cadena de texto.
+
+Obtención de la Flag
+Creamos un token falsificado estableciendo el campo 'usr' como el entero '0'. Al presentarlo en '/private-area', el servidor acepta nuestra firma y la comprobación de rol se salta automáticamente, revelando nuestra recompensa final: **SoterCTF{1fb24985e208058b28c708b2fe4ac251}**.
+
+Lecciones Aprendidas
+Los filtros de "Allowlist" no deben fiarse de 'strpos()' al evaluar URLs, dado que es fácil aprovechar la estructura '@' de credenciales web para inyectar dominios. Por otra parte, las comparaciones de identidad o privilegios requieren obligatoriamente operadores estrictos ('===') para evitar conversiones automáticas fatales del lenguaje en sí.`
+      },
       {
         id: 19, name: "The Space Man", category: "Explotación de binarios",
         description: "La nave ha entrado en estado crítico. Durante el viaje, un fallo en el sistema automático ha activado el protocolo de emergencia: hibernación total. Todas las compuertas han quedado selladas. La central informa de la existencia de dos tarjetas de acceso necesarias para recuperar el control… pero el sistema de seguridad ha endurecido sus defensas. Nada responde. Todo está bloqueado. Encuentra las tarjetas. Abre las compuertas. Sobrevive. Y vuelve a casa, camarad.",
@@ -1304,6 +1349,28 @@ La distorsió digital rarament pot esborrar la identitat d'una obra arquitectòn
       {
         id: 18, name: "Sanity check", category: "MISC",
         description: "Uneix-te al servidor de Discord de SoterCTF i troba la flag amagada entre els canals."
+      },
+      {
+        id: 21, category: "Web",
+        name: "Workshop",
+        description: "L'Estació Kepler-9 té una API de logística per gestionar peces de naus, comandes i tiquets de suport. Tens credencials de demostració. Inicia sessió, explora els endpoints i descobreix què amaga realment el workshop.\nhttp://173.212.252.46:1911/",
+        resolution: `Anàlisi i Reconeixement
+El repte consisteix en una API REST escrita en PHP 7.4, protegida per autenticació basada en JWT. En iniciar sessió amb les credencials proporcionades (demo / demo) obtenim un token bàsic. L'objectiu és accedir a l'endpoint restringit '/private-area'.
+En consultar l'historial de versions a '/changelog', descobrim que recentment van afegir suport per a la capçalera 'jku' en els tokens, una pista clau que assenyala cap a una vulnerabilitat d'Injecció JKU (Key Confusion).
+
+Fase d'Explotació
+
+Pas 1 — Injecció de Capçalera JKU
+El servidor valida les signatures obtenint la clau pública des de la URL especificada a 'jku'. El seu filtre de seguretat exigeix que la URL comenci per 'http://127.0.0.1'. Sorprenentment, podem enviar una URL externa estructurant-la com un usuari HTTP: 'http://127.0.0.1@<ngrok-host>/jwks.json'. D'aquesta manera aconseguim que el servidor resolgui el nostre domini i confiï en les nostres pròpies claus RSA per falsificar qualsevol token.
+
+Pas 2 — Manipulació de Tipus en PHP (Type Juggling)
+Els nostres tokens falsificats ara són vàlids criptogràficament, però la comprovació de permisos ('$usr == "admin"') encara ens bloqueja. En forçar un error, identifiquem l'ús de PHP 7.4. En aquestes versions, a causa d'una conversió interna (Type Juggling), la comparació laxa '0 == "admin"' dona resultat veritable en comparar un enter amb un text no numèric.
+
+Obtenció de la Flag
+Creem un token falsificat configurant el camp 'usr' com a l'enter '0'. En presentar-lo a '/private-area', el servidor l'accepta a l'instant, revelant el codi secret ocult: **SoterCTF{1fb24985e208058b28c708b2fe4ac251}**.
+
+Lliçons Apreses
+Els filtres de domini segur no han de confiar en 'strpos()' en avaluar URLs, ja que és fàcil aprofitar l'estructura '@' per evadir-los. A més, les comprovacions de privilegis demanen obligatòriament l'ús d'operadors estrictes ('===') per tancar el pas a l'autocast d'avaluació en el llenguatge.`
       },
       {
         id: 19, name: "The Space Man", category: "Explotació de binaris",

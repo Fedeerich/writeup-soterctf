@@ -29,7 +29,7 @@ const Hero = () => {
           <div className="glass-panel flex items-center gap-2 delay-200" style={{ padding: '1rem 2rem' }}>
             <Trophy color="#FFD700" />
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>19/27</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>21/27</div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('challenges')}</div>
             </div>
           </div>

