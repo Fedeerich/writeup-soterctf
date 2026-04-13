@@ -29,7 +29,7 @@ const Header = () => {
             boxShadow: '0 0 10px rgba(0, 240, 255, 0.3)'
           }}>
             <img 
-              src="/src/assets/carriedo_logo.png" 
+              src="/carriedo_logo.png" 
               alt="Logo" 
               style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
             />
