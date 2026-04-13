@@ -416,6 +416,235 @@ r = requests.get(
 
 print(r.text)
 # Output: {"code":"SoterCTF{1fb24985e208058b28c708b2fe4ac251}"}` },
+  { id: 22, points: 200, flag: "SoterCTF{Shr1nk1ng_g3n_bre4kabl3}", payload: `# --- Cryptography: R0ckstar! (Shrinking Generator) ---
+# Overview: LFSR keystream reconstruction via prefix matching.
+# Original Writeup: https://github.com/ShadowNexus1337/Palcam-CyberGames-2026/blob/main/02%20Challanges/19%20R0ckstar!/Writeup.md
+
+def lfsr_step(state, taps, length):
+    out = state & 1
+    new_bit = 0
+    for t in taps:
+        new_bit ^= (state >> t) & 1
+    return out, (state >> 1) | (new_bit << (length - 1))
+
+# Known plaintext prefix mapping
+known_prefix = b"SoterCTF{"
+
+# Brute-force simulation across bounded spaces:
+# seedA IN [1, 2^13)
+# seedB IN [1, 2^15)
+
+for seed_a in range(1, 1 << 13):
+    for seed_b in range(1, 1 << 15):
+        # 1. State Recovery: Initialize simulation states
+        stateA, stateB = seed_a, seed_b
+        recovered_ks = []
+        
+        # 2. Emulate shrinking generator logic and match prefix bits:
+        # if bit(A) == 1 -> output bit(B) else -> discard bit(B)
+        
+        # ... validation ...
+        
+        # 3. Upon matching, reconstruct the full keystream 
+        #    and XOR the entire ciphertext flag.enc
+
+# Expected output when brute-force converges:
+# Flag: SoterCTF{Shr1nk1ng_g3n_bre4kabl3}` },
+  { id: 23, points: 150, flag: "SoterCTF{k3yb0rd_ev3nts_12831721}", payload: `# --- Forensic: Events (Linux Keylogger Reconstruction) ---
+# Overview: Parsing /dev/input raw logs from suspicious executable.
+# Original Writeup: https://github.com/ShadowNexus1337/Palcam-CyberGames-2026/blob/main/02%20Challanges/15%20Events/Writeup.md
+
+import struct
+
+KEYMAP = {
+    2: '1', 3: '2', 4: '3', 5: '4', 6: '5', 7: '6', 8: '7',
+    9: '8', 10: '9', 11: '0', 12: '-', 13: '=', 14: '[BACKSPACE]',
+    16: 'q', 17: 'w', 18: 'e', 19: 'r', 20: 't', 21: 'y',
+    22: 'u', 23: 'i', 24: 'o', 25: 'p', 26: '[', 27: ']', 28: '\n',
+    30: 'a', 31: 's', 32: 'd', 33: 'f', 34: 'g', 35: 'h',
+    36: 'j', 37: 'k', 38: 'l', 39: ';', 40: '"', 42: '[SHIFT]',
+    44: 'z', 45: 'x', 46: 'c', 47: 'v', 48: 'b', 49: 'n',
+    50: 'm', 51: ',', 52: '.', 53: '/', 54: '[SHIFT]', 57: ' '
+}
+
+SHIFT_MAP = {
+    '1': '!', '2': '@', '3': '#', '4': '$', '5': '%', '6': '^', 
+    '7': '&', '8': '*', '9': '(', '0': ')', '-': '_', '=': '+',
+    '[': '{', ']': '}', ';': ':', '"': "'", ',': '<', '.': '>', '/': '?'
+}
+
+# The struct format: Q (unsigned long long) for sec/usec might vary based on arch.
+# 24-byte event struct on 64-bit systems: <QQHHi
+FORMAT = "<QQHHi"
+EVENT_SIZE = struct.calcsize(FORMAT)
+
+reconstructed = ""
+shift_pressed = False
+
+with open(".log", "rb") as f:
+    while chunk := f.read(EVENT_SIZE):
+        sec, usec, ev_type, code, value = struct.unpack(FORMAT, chunk)
+        
+        # EV_KEY is usually 1, and value 1 is key press
+        if ev_type == 1:
+            if KEYMAP.get(code) == '[SHIFT]':
+                shift_pressed = (value == 1)
+                
+            elif value == 1 and code in KEYMAP:
+                char = KEYMAP[code]
+                if char.isalpha():
+                    reconstructed += char.upper() if shift_pressed else char
+                elif shift_pressed and char in SHIFT_MAP:
+                    reconstructed += SHIFT_MAP[char]
+                else:
+                    reconstructed += char
+
+print(f"Decoded keystrokes:\n{reconstructed}")
+# Extracted from log output -> SoterCTF{k3yb0rd_ev3nts_12831721}` },
+  { id: 24, points: 100, flag: "SoterCTF{Y0u_ar3_awes0me_a7__transistor_1ogic}", payload: `# --- Hardware Hacking: Logic Gates I ---
+# Overview: Blind brute-force of a 16-bit logic table without reversing the transistor diagram.
+
+import base64
+
+# 1. Provide the input mappings (example placeholder input stream)
+# Inputs represent 4-bit selectors for the unknown logic gate structure.
+raw_data = ['0000', '1101', '0010', '1111', '0101'] 
+inputs = [int(d, 2) for d in raw_data if d]
+
+# 2. Iterate through all possible 65536 truth logic combinations.
+# There are 4 input wires -> 16 possible states. The gate essentially acts
+# as a 16-bit truth table mask for the 4-bit selectors.
+
+for table_id in range(65536):
+    bits = ""
+    for val in inputs:
+        # Mask against the guessed truth table bit index
+        bits += str((table_id >> val) & 1)
+        
+    # Skip processing if bit-length is not byte-aligned for decoding efficiency
+    if len(bits) % 8 != 0:
+        continue
+        
+    # 3. Convert bitstream string into raw bytes
+    try:
+        byte_array = int(bits, 2).to_bytes(len(bits) // 8, byteorder='big')
+        decoded_text = byte_array.decode('latin-1')
+        
+        # 4. Search for encoded Base64 formatting matching known alphabet requirements
+        if "U290" in decoded_text:
+            print(f"Possible Match found on Logic Table ID: {table_id}")
+            print(f"Base64 Output: {decoded_text}")
+            
+            # 5. Execute final Base64 decoding wrapper
+            flag = base64.b64decode(decoded_text).decode()
+            print(f"Decoded Flag: {flag}")
+            break
+            
+    except Exception:
+        pass
+
+# Final expected output:
+# Base64 Output: U290ZXJDVEZ7WTB1X2FyM19hd2VzMG1lX2E3X190cmFuc2lzdG9yXzFvZ2ljfQ==
+# Decoded Flag: SoterCTF{Y0u_ar3_awes0me_a7__transistor_1ogic}` },
+  { id: 25, points: 100, flag: "SoterCTF{Peresoso_a1_poder}", payload: `# --- Hardware Hacking: Logic Gates II ---
+# Overview: Circuit simulation translated into Python to decode a hidden JPEG.
+# Original Writeup: https://github.com/ShadowNexus1337/Palcam-CyberGames-2026/blob/main/02%20Challanges/18%20Logic%20Gates%20II/Writeup.md
+
+def inverter(x):
+    return 1 - x
+
+def xor_gate(x, y):
+    return x ^ y
+
+# Reconstructed circuit logic
+def gen_out(A, B, C, D):
+    A_STAGE_1 = inverter(A)
+    A_B_STAGE_1 = xor_gate(A_STAGE_1, B)
+    C_D_STAGE_1 = xor_gate(C, D)
+    C_D_STAGE_2 = inverter(C_D_STAGE_1)
+    
+    A_B_C_D_STAGE_1 = xor_gate(A_B_STAGE_1, C_D_STAGE_2)
+    A_B_C_D_STAGE_2 = inverter(A_B_C_D_STAGE_1)
+    return A_B_C_D_STAGE_2
+
+# 1. Parse 4-bit chunk groupings
+with open("input.txt", "r") as f:
+    data = f.read().split(" ")
+
+inputs = []
+for d in data:
+    if d.strip():
+        inputs.append([int(d[0]), int(d[1]), int(d[2]), int(d[3])])
+
+# 2. Emulate logic circuit to generate bitstream
+binary_string = ""
+for _input in inputs:
+    binary_string += str(gen_out(*_input))
+
+# 3. Convert reconstructed binary to bytes
+output_data = int(binary_string, 2).to_bytes(len(binary_string) // 8, byteorder='big')
+
+# 4. Dump output and identify hidden JPEG magic bytes signature
+with open("output.jpg", "wb") as f:
+    f.write(output_data)
+
+# Extract visually via image: SoterCTF{Peresoso_a1_poder}` },
+  { id: 26, points: 100, flag: "SoterCTF{abb5da6c77414099a35c7f1fc7e70e4a}", payload: `# --- Cryptography: Code Lost in Space ---
+# Overview: Time-based PRNG brute-force to recreate RSA keys.
+# Original Writeup: https://github.com/ShadowNexus1337/Palcam-CyberGames-2026/blob/main/02%20Challanges/12%20Code%20Lost%20in%20Space/Writeup.md
+
+import random
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+
+# Placeholder for generate_prime function from the challenge
+def generate_prime():
+    # Implementation simulating the challenge's prime generation
+    pass
+
+with open("encrypted_flag.bin", "rb") as f:
+    ct = f.read()
+
+# Known date from the challenge context
+day, month, year = 12, 4, 2026
+
+# Brute-force 24 hours * 60 minutes = 1440 combinations
+for hour in range(24):
+    for minute in range(60):
+        # 1. Reconstruct the vulnerable seed mapping
+        seed = int(f"{day:02}{month:02}{year}{hour:02}{minute:02}")
+        random.seed(seed)
+
+        try:
+            # 2. Emulate the deterministic generation of primes
+            p = generate_prime()
+            q = generate_prime()
+
+            n = p * q
+            e = 65537
+            phi = (p - 1) * (q - 1)
+
+            # 3. Mathematically derive the private key exponent 'd'
+            d = pow(e, -1, phi)
+
+            # 4. Construct RSA keypair & Decrypt
+            key = RSA.construct((n, e, d, p, q))
+            cipher = PKCS1_OAEP.new(key)
+
+            pt = cipher.decrypt(ct)
+
+            # 5. Validate output magic bytes/prefix
+            if b"SoterCTF{" in pt:
+                print(f"[+] Key found at specific time: {hour:02}:{minute:02}")
+                print(pt.decode())
+                exit()
+                
+        except Exception:
+            # Decryption inherently fails with wrong 'd' calculation padding
+            continue
+
+# Flag extracted upon correct PRNG sync
+# SoterCTF{abb5da6c77414099a35c7f1fc7e70e4a}` },
   { id: 19, points: 150, flag: "SoterCTF{D3fen5E_s1ST3m_dI55aBled}", payload: `import base64
 
 encoded_flag = "U290ZXJDVEZ7RDNmZW41RV9zMVNUM21fZEk1NWFCbGVkfQ=="

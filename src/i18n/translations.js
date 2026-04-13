@@ -446,6 +446,121 @@ Lessons Learned
 Using 'strpos' for external URL allowlists is dangerous because attackers can exploit URL parsing confusion (e.g., using '@' for authentication). Furthermore, security-sensitive checks must always use strict comparisons ('===') to prevent language-specific type coerced logic bugs.`
       },
       {
+        id: 22, category: "Cryptography",
+        name: "R0ckstar!",
+        description: "They said the signal was clean.\nThey said nothing was missing.\n\nBut something feels… off.\n\nYou intercepted a transmission that doesn’t quite behave like a normal stream. Bits seem to appear and disappear without warning, as if something is selectively filtering the data.\n\nWhatever system produced this output, it wasn’t random.\n\nYour task is simple:\nrecover what was lost.\n\nFiles provided:\nchallenge.py\nflag.enc",
+        resolution: `Analysis and Reconnaissance
+The system is clearly a stream cipher built from LFSRs. One generator (A) controls whether bits are output, and a second generator (B) provides the actual output bits. This matches a "shrinking generator" construction.
+If 'bit(A) == 1', output 'bit(B)'. If 'bit(A) == 0', discard 'bit(B)'. This introduces non-linear filtering, making naive reconstruction harder.
+
+Exploitation Phase
+
+Step 1 — Understand the LFSR system
+Two LFSRs are used. The control generator (A) uses taps '[0, 1, 3, 12]', and the data generator (B) uses taps '[0, 1, 4, 14]'.
+
+Step 2 — Keystream Recovery Strategy
+The key challenge is that the keystream is irregularly sampled, not continuous. However, we can exploit a known plaintext prefix ('b"SoterCTF{"'). We XOR the ciphertext with this prefix to recover the partial keystream bits.
+
+Step 3 — State Reconstruction
+We brute-force both seeds since the state space is small enough ('seedA ∈ [1, 2^13)', 'seedB ∈ [1, 2^15)'). For each pair, we simulate the shrinking generator and compare the produced bits with the recovered known keystream.
+
+Final Extraction
+Once the seeds align with our prefix, we regenerate the full keystream, XOR it with the entire ciphertext, and reconstruct the plaintext flag: **SoterCTF{Shr1nk1ng_g3n_bre4kabl3}**.
+
+Lessons Learned
+Shrinking generators are vulnerable to known plaintext attacks. LFSR systems are not secure under partial output leakage, and irregular bit sampling does not increase cryptographic strength when the state space is small enough for brute-force validation.`
+      },
+      {
+        id: 23, category: "Forensic",
+        name: "Events",
+        description: "An employee's accounts were stolen, and the forensic team found that they had downloaded a suspicious game. Can you help investigate and find out what happened?",
+        resolution: `Analysis and Reconnaissance
+The provided binary appears to be a game, but it requires root privileges, which is highly suspicious. Using Ghidra / Dogbolt for decompilation, we found that the program forks a background process, reads from a raw input device ('/dev/input/event7'), and writes raw data into a '.log' file. This behavior is fully characteristic of a Linux keylogger.
+
+Exploitation Phase
+
+Step 1 — Understand Log Format
+The Linux input event structure uses 24 bytes per event, containing seconds, microseconds, event type, code, and value. Our analysis confirmed it logged 'ev_type == 1' for keyboard inputs with values corresponding to key presses/releases.
+
+Step 2 — Decode Keylogger Output
+We developed a Python script leveraging 'struct.unpack("<QQHHi", data)' to parse and decode the binary '.log' file.
+
+Step 3 — Reconstruct Typed Input
+Mapping the extracted keycodes to characters and correctly handling the SHIFT modifier states allowed us to reconstruct the exact keystrokes intercepted during the session.
+
+Final Extraction
+Reading the final reconstructed keystrokes revealed what the victim typed: **SoterCTF{k3yb0rd_ev3nts_12831721}**.
+
+Lessons Learned
+Keyloggers frequently abuse the Linux input event system ('/dev/input/event*'), disguising themselves within harmless executables like games. Binary logs generated at the hardware level require strict struct format reconstruction in order to be properly analyzed and reverse-engineered.`
+      },
+      {
+        id: 24, category: "Hardware Hacking",
+        name: "Logic Gates I",
+        description: "In this challenge you are provided with the input for a set of transistors that will eventually produce a single output that can be either 0 or 1. Once all of the input has passed through the transistor circuit, you should end up with a long binary string.\nIn the diagram shown in the image, four inputs (A, B, C, and D) are provided, where each set of 4 previously separated numbers will be assigned.",
+        resolution: `Analysis and Reconnaissance
+This challenge involves a truth-table based logic circuit. The components represent 4-bit combinations given as input, generating an output state depending on an unknown logic function. After the whole stream passes, the result forms an encoded binary string.
+
+Exploitation Phase
+
+Step 1 — Understand the Vulnerability
+Instead of manually tracing the transistor gate layout logic backward, we can treat the circuit as a black-box programmable logic table. Since the inputs are merely 4-bit numbers (0–15), the entire function can be defined by a 16-bit truth table.
+
+Step 2 — Brute-Force the Logic Table
+We developed a Python script to iterate through all 65,536 possible 16-bit combinations. For each proposed table, we mapped the provided input sequence to construct a potential binary output stream.
+
+Step 3 — Extract and Decode 
+After converting each binary stream into ASCII bytes, we parsed the results looking for readable text. We quickly identified a valid Base64 encoded string: 'U290ZXJDVEZ7WTB1X2FyM19hd2VzMG1lX2E3X190cmFuc2lzdG9yXzFvZ2ljfQ=='.
+
+Final Extraction
+Decoding the Base64 sequence yielded the flag: **SoterCTF{Y0u_ar3_awes0me_a7__transistor_1ogic}**.
+
+Lessons Learned
+While hardware-level challenges often intend for players to simulate or map logic gates manually, small input spaces (like 2^16) are highly susceptible to brute-forcing. Security implementations relying solely on unmapped logic gates without sufficient entropy are fundamentally weak.`
+      },
+      {
+        id: 25, category: "Hardware Hacking",
+        name: "Logic Gates II",
+        description: "In this challenge you will receive an input to a certain set of logic gates, which, after passing it through these logic gates, will give you a final binary.",
+        resolution: `Analysis and Reconnaissance
+Unlike the first part, this circuit was manually reconstructed. The logic consists of simple gates (XOR, NOT). Each input line grouping represents multiple bits, and the output bits form a continuous binary stream that eventually reconstructs a complete file.
+
+Exploitation Phase
+
+Step 1 — Analyze Circuit
+Using a circuit simulator (like Falstad), the logic was manually traced and converted into an equivalent Python function. The core logic uses a combination of inverters and XOR gates across two stages to filter the 'A, B, C, D' inputs.
+
+Step 2 — Process Input & Generate Binary
+The input file containing space-separated 4-bit groups was parsed. Each group was fed into the Python logic simulator, producing a single output bit per group. These bits were concatenated into a massive binary string.
+
+Step 3 — Convert to File & Extract Flag
+The raw binary string was converted into bytes and written to disk. Using file inspection tools ('file' or hex editors), the magic numbers revealed it to be a JPEG image package. After renaming the output to '.jpg' and opening it, the flag was visually embedded inside the image: **SoterCTF{Peresoso_a1_poder}**.
+
+Lessons Learned
+Hardware-style challenges often translate directly into programming and simulation problems. XOR and NOT combinations are very common in logic obfuscation. Furthermore, continuous binary streams in CTFs should always be checked against file signatures (magic bytes), as they frequently encapsulate media or archives.`
+      },
+      {
+        id: 26, category: "Cryptography",
+        name: "Code Lost in Space",
+        description: "During a critical mission on the Soter Space Station, the Nebula-12 spacecraft's navigation systems were encrypted to protect them from intrusion. However, after an unexpected solar storm, the device storing the decryption keys was damaged. The astronauts were only able to recover an encrypted file and a fragment of the source code that generated the keys.",
+        resolution: `Analysis and Reconnaissance
+The challenge involves an RSA encryption scheme with deterministic key generation due to weak randomness ('random.seed()' in Python). The provided source code fragment shows that the seed is based on a timestamp: 'seed = int(f"{day:02}{month:02}{year}{hour:02}{minute:02}")'. This means that if we know or guess the exact time the keys were generated, we can regenerate the exact same RSA keypair and decrypt the file.
+
+Exploitation Phase
+
+Step 1 — Assess the Search Space
+Since the timestamp depends on the hour and minute, the search space is limited to 24 hours × 60 minutes = 1440 possible combinations per day. This makes it a trivial brute-force attack against the RNG seed. Additionally, there is a known time zone ambiguity (Germany CET/CEST offset), which confirms the exact minute isn't directly known and requires brute-forcing.
+
+Step 2 — Brute-Force the Seed
+We developed a script to iterate through all 1440 possible hour/minute combinations for the given date. For each tick, we seed Python's random module and generate the 'p' and 'q' primes exactly as the vulnerable script did.
+
+Final Extraction
+As the loop successfully reconstructs the RSA private key ('d'), we decrypt using PKCS1_OAEP. When the plaintext output contains the expected 'SoterCTF{' prefix, the loop halts, revealing the flag: **SoterCTF{abb5da6c77414099a35c7f1fc7e70e4a}**.
+
+Lessons Learned
+RSA is mathematically secure, but initializing a pseudorandom number generator (PRNG) with predictable seeds like the current time instantly breaks the cryptography. Time-based key generation reduces an impossibly hard factoring problem into a trivial brute-force search space involving only 1440 attempts.`
+      },
+      {
         id: 19, category: "Binary Exploitation",
         name: "The Space Man",
         description: "The ship has entered a critical state. During the journey, an automatic system failure activated the emergency protocol: total hibernation. All doors have been sealed. The central command reports the existence of two access cards needed to regain control... but the security system has hardened its defenses. Nothing responds. Everything is locked. Find the cards. Open the doors. Survive. And come home, comrade.",
@@ -889,6 +1004,121 @@ Creamos un token falsificado estableciendo el campo 'usr' como el entero '0'. Al
 
 Lecciones Aprendidas
 Los filtros de "Allowlist" no deben fiarse de 'strpos()' al evaluar URLs, dado que es fácil aprovechar la estructura '@' de credenciales web para inyectar dominios. Por otra parte, las comparaciones de identidad o privilegios requieren obligatoriamente operadores estrictos ('===') para evitar conversiones automáticas fatales del lenguaje en sí.`
+      },
+      {
+        id: 22, category: "Criptografía",
+        name: "R0ckstar!",
+        description: "Decían que la señal era limpia.\nDecían que no faltaba nada.\n\nPero algo no encaja.\n\nHas interceptado una transmisión que no se comporta como un flujo normal. Los bits parecen aparecer y desaparecer sin previo aviso, como si algo estuviera filtrando la información de forma selectiva.\n\nSea cual sea el sistema que ha generado esta salida, no es aleatorio.\n\nTu objetivo es simple:\nrecuperar lo que se ha perdido.\n\nArchivos proporcionados:\nchallenge.py\nflag.enc",
+        resolution: `Análisis y Reconocimiento
+El sistema atacado es un cifrado de flujo construido a partir de registros de desplazamiento con retroalimentación lineal (LFSRs). Un generador (A) controla si los bits salen o no a la luz, y un segundo generador (B) provee los bits reales. Esta estructura se conoce como "Generador Menguante" (Shrinking Generator).
+La regla es simple: si 'bit(A) == 1', se expulsa 'bit(B)'. Si 'bit(A) == 0', se descarta 'bit(B)'. Este filtrado no lineal complica la reconstrucción clásica.
+
+Fase de Explotación
+
+Paso 1 — Comprender el sistema LFSR
+Se utilizan dos generadores: el de control (A) con taps '[0, 1, 3, 12]' y el de datos (B) con taps '[0, 1, 4, 14]'.
+
+Paso 2 — Estrategia de Recuperación de Keystream
+El problema principal radica en que el keystream original no es continuo. Sin embargo, conocemos el inicio de la flag ('b"SoterCTF{"'). Aplicando XOR entre el texto cifrado (ciphertext) y este prefijo conocido, podemos recuperar los primeros bits parciales del keystream original.
+
+Paso 3 — Reconstrucción de Estado (Fuerza Bruta)
+El espacio de las semillas es bastante pequeño ('seedA' llega hasta '2^13', 'seedB' a '2^15'). Recorremos con fuerza bruta todos los pares posibles simulando el generador menguante y lo comparamos con los bits comprobados que extrajimos del prefijo.
+
+Obtención de la Flag
+Cuando encontramos las semillas que cuadran con el patrón extraído, generamos el keystream completo y aplicamos XOR al texto cifrado entero. La bandera aparece limpia: **SoterCTF{Shr1nk1ng_g3n_bre4kabl3}**.
+
+Lecciones Aprendidas
+Los generadores menguantes son vulnerables frente a ataques de texto plano conocido. El simple hecho de descartar o "filtrar" bits aleatoriamente no garantiza seguridad si el espacio interno de estados (LFSR seeds) es lo bastante pequeño como para romperlo mediante una simulación de fuerza bruta combinatoria rápida.`
+      },
+      {
+        id: 23, category: "Forense",
+        name: "Events",
+        description: "Las cuentas de un empleado fueron robadas y el equipo forense descubrió que había descargado un juego sospechoso. ¿Puedes ayudar a investigar y averiguar qué pasó?",
+        resolution: `Análisis y Reconocimiento
+El binario analizado fingía ser un juego, pero solicitaba permisos de superusuario (root), lo cual es muy sospechoso. Descompilando el ejecutable pudimos comprobar que el programa hace un "fork" para correr en segundo plano, leer directamente del dispositivo '/dev/input/event7' y escribir los datos interceptados en un archivo '.log' oculto. Este comportamiento es el estándar de un keylogger clásico para Linux.
+
+Fase de Explotación
+
+Paso 1 — Comprender el Formato de Eventos
+Las pulsaciones en Linux se capturan bajo la estructura de eventos de 24 bytes que detalla momento temporal, tipo de evento, código de tecla y valor (presionada o soltada: 1 o 0).
+
+Paso 2 — Decodificación de la Extracción
+Usando Python, programamos un analizador que abre el archivo '.log' generado por el binario malicioso y lo desempaqueta utilizando 'struct.unpack("<QQHHi", data)'.
+
+Paso 3 — Reconstrucción de la Secuencia
+Al haber descifrado el formato, cruzamos los códigos numéricos frente a un diccionario de teclado estándar, teniendo especial cuidado en procesar cuándo la tecla "SHIFT" estaba pulsada temporalmente.
+
+Obtención de la Flag
+El histórico reconstruido tras desenmascarar el archivo '.log' reveló la escritura extraída: **SoterCTF{k3yb0rd_ev3nts_12831721}**.
+
+Lecciones Aprendidas
+Los keyloggers abusan permanentemente del sistema de eventos interno de Linux ('/dev/input/event*'), a menudo ocultando su proceso en segundo plano bajo un binario trivial. Al realizar intervenciones forenses, saber desempaquetar trazas crudas de sistema es una habilidad fundamental.`
+      },
+      {
+        id: 24, category: "Hardware Hacking",
+        name: "Logic Gates I",
+        description: "En este reto se te proporciona la entrada para un circuito de transistores que al final producirá una única salida de 0 o 1. Una vez que toda la entrada haya pasado por el circuito, deberías obtener una larga cadena binaria.\nEn el diagrama que muestra la imagen se proporcionan cuatro entradas (A, B, C y D), a las que se les asignará cada conjunto de 4 números previamente separados.",
+        resolution: `Análisis y Reconocimiento
+Este reto presenta un circuito lógico basado en tablas de verdad. Las señales de entrada corresponden a combinaciones de 4 bits que generan un estado final según una función lógica desconocida. Tras pasar todo el flujo de datos, el resultado conforma una cadena binaria estructurada.
+
+Fase de Explotación
+
+Paso 1 — Comprender la Vulnerabilidad
+En lugar de trazar y reconstruir el diseño de las puertas lógicas a mano (el método previsible y tedioso), podemos tratar el circuito como una 'caja negra'. Dado que la entrada solo toma números de 4 bits (de 0 a 15), la función al completo está restringida a una tabla de verdad de 16 bits.
+
+Paso 2 — Fuerza Bruta sobre la Tabla Lógica
+Implementamos un script en Python para iterar sobre las 65.536 posibles tablas de 16 bits. Para cada tabla generada, traducíamos el registro de entrada para ensamblar un posible flujo de datos de salida.
+
+Paso 3 — Extracción y Decodificación
+Al parsear cada flujo binario a texto legible, filtramos los datos sin sentido hasta dar con una cadena codificada claramente en Base64: 'U290ZXJDVEZ7WTB1X2FyM19hd2VzMG1lX2E3X190cmFuc2lzdG9yXzFvZ2ljfQ=='.
+
+Obtención de la Flag
+Decodificando la cadena en Base64 obtuvimos la bandera final: **SoterCTF{Y0u_ar3_awes0me_a7__transistor_1ogic}**.
+
+Lecciones Aprendidas
+Aunque el objetivo de los retos de hardware es forzar a interpretar diagramas y puertas lógicas, los espacios de datos muy pequeños (como 2^16) abren la puerta a los ataques de fuerza bruta ciega. Depender de la "oscuridad" de un diseño lógico sin suficiente entropía matemática no es un sistema de cifrado seguro.`
+      },
+      {
+        id: 25, category: "Hardware Hacking",
+        name: "Logic Gates II",
+        description: "En este reto recibirás una entrada para un determinado conjunto de puertas lógicas que, tras pasar por ellas, te devolverá un binario final.",
+        resolution: `Análisis y Reconocimiento
+A diferencia de la primera parte, este circuito fue reconstruido manualmente. La lógica consta de puertas simples (XOR, NOT). Cada línea de entrada representa múltiples bits, y los bits de salida forman un flujo binario continuo que acaba reconstruyendo un archivo completo.
+
+Fase de Explotación
+
+Paso 1 — Análisis del Circuito
+Usando un simulador de circuitos (como Falstad), la lógica se trazó manualmente y se convirtió en una función equivalente en Python. La lógica central utiliza una combinación de inversores y puertas XOR en dos etapas para filtrar las entradas 'A, B, C, D'.
+
+Paso 2 — Procesar Entrada y Generar Binario
+Se parseó el archivo de entrada que contenía grupos de 4 bits separados por espacios. Cada grupo se introdujo en el simulador lógico en Python, produciendo un único bit de salida por grupo. Estos bits se concatenaron en una enorme cadena binaria.
+
+Paso 3 — Convertir a Archivo y Extraer Flag
+La cadena binaria cruda se convirtió en bytes y se guardó en el disco. Usando herramientas de inspección de archivos ('file' o editores hexadecimales), los números mágicos revelaron que se trataba de una imagen JPEG. Tras renombrar la salida a '.jpg' y abrirla, la bandera apareció visualmente incrustada en la imagen: **SoterCTF{Peresoso_a1_poder}**.
+
+Lecciones Aprendidas
+Los retos de estilo hardware a menudo se traducen directamente en problemas de programación y simulación. Las combinaciones XOR y NOT son muy comunes en la ofuscación lógica. Además, los flujos binarios continuos en los CTFs siempre deben comprobarse contra firmas de archivos (magic bytes), ya que frecuentemente encapsulan multimedia o archivos comprimidos.`
+      },
+      {
+        id: 26, category: "Criptografía",
+        name: "Code Lost in Space",
+        description: "Durante una misión crítica en la Estación Espacial Soter, los sistemas de navegación de la nave Nebula-12 fueron cifrados para protegerlos de intrusiones. Sin embargo, tras una inesperada tormenta solar, el dispositivo que almacenaba las claves de descifrado resultó dañado. Los astronautas solo pudieron recuperar un archivo cifrado y un fragmento del código fuente que generó las claves.",
+        resolution: `Análisis y Reconocimiento
+Este reto involucra un esquema de cifrado RSA que sufre de generación de claves determinista debido a un uso débil de la aleatoriedad ('random.seed()' en Python). El fragmento de código muestra que la semilla se basa en una marca de tiempo: 'seed = int(f"{day:02}{month:02}{year}{hour:02}{minute:02}")'. Esto implica que si adivinamos la hora exacta en la que se generaron, podemos recrear el par de claves RSA idéntico.
+
+Fase de Explotación
+
+Paso 1 — Evaluar el Espacio de Búsqueda
+Dado que la semilla depende de la hora y el minuto, el espacio de búsqueda se limita a 24 horas × 60 minutos = 1440 combinaciones posiibles por día. Esto convierte el problema matemático en un simple ataque de fuerza bruta contra la semilla del PRNG. Además, las pistas indican un posible desfase horario (Alemania CET/CEST), lo que justifica por qué el minuto exacto no cuadra a la primera.
+
+Paso 2 — Fuerza Bruta sobre la Semilla
+Desarrollamos un script para iterar a través de las 1440 combinaciones de hora y minuto. Para cada intento, inicializamos el módulo random de Python y generamos los números primos 'p' y 'q' siguiendo la misma secuencia que el programa vulnerable.
+
+Obtención de la Flag
+Cuando el bucle recupera con éxito la clave privada RSA ('d'), desciframos el archivo usando PKCS1_OAEP. En cuanto el texto plano resultante contiene 'SoterCTF{', la ejecución se detiene y revela: **SoterCTF{abb5da6c77414099a35c7f1fc7e70e4a}**.
+
+Lecciones Aprendidas
+El RSA es matemáticamente seguro, pero inicializar un generador de números pseudoaleatorios (PRNG) con semillas predecibles como la hora del sistema rompe la criptografía por completo. Una generación de claves basada en tiempo reduce un problema de factorización imposible a una búsqueda trivial de apenas 1440 intentos.`
       },
       {
         id: 19, name: "The Space Man", category: "Explotación de binarios",
@@ -1371,6 +1601,121 @@ Creem un token falsificat configurant el camp 'usr' com a l'enter '0'. En presen
 
 Lliçons Apreses
 Els filtres de domini segur no han de confiar en 'strpos()' en avaluar URLs, ja que és fàcil aprofitar l'estructura '@' per evadir-los. A més, les comprovacions de privilegis demanen obligatòriament l'ús d'operadors estrictes ('===') per tancar el pas a l'autocast d'avaluació en el llenguatge.`
+      },
+      {
+        id: 22, category: "Criptografia",
+        name: "R0ckstar!",
+        description: "Deien que el senyal era net.\nDeien que no hi faltava res.\n\nPerò hi ha alguna cosa estranya.\n\nHas interceptat una transmissió que no es comporta com un flux normal. Els bits semblen aparèixer i desaparèixer sense previ avís, com si alguna cosa estigués filtrant la informació de forma selectiva.\n\nSigui quin sigui el sistema que ha generat aquesta sortida, no és aleatori.\n\nEl teu objectiu és simple:\nrecuperar allò que s'ha perdut.\n\nArxius proporcionats:\nchallenge.py\nflag.enc",
+        resolution: `Anàlisi i Reconeixement
+El sistema atacat és un xifrat de flux construït a partir de registres de desplaçament amb retroalimentació lineal (LFSRs). Un generador (A) controla si els bits surten a la llum o no, i un segon generador (B) proveeix els bits reals. Aquesta estructura es coneix com a "Generador Minvant" (Shrinking Generator).
+La regla és simple: si 'bit(A) == 1', s'expulsa 'bit(B)'. Si 'bit(A) == 0', es descarta 'bit(B)'. Aquest filtratge no lineal complica la reconstrucció clàssica.
+
+Fase d'Explotació
+
+Pas 1 — Comprendre el sistema LFSR
+S'utilitzen dos generadors: el de control (A) amb taps '[0, 1, 3, 12]' i el de dades (B) amb taps '[0, 1, 4, 14]'.
+
+Pas 2 — Estratègia de Recuperació de Keystream
+El problema principal radica en què el flux de bits no és continu. Tot i això, coneixem l'inici de la flag ('b"SoterCTF{"'). Aplicant XOR entre el text xifrat (ciphertext) i aquest prefix conegut, podem recuperar els primers bits parcials del keystream original.
+
+Pas 3 — Reconstrucció d'Estat (Força Bruta)
+L'espai de les llavors és força petit ('seedA' arriba fins a '2^13', 'seedB' a '2^15'). Recorrem amb força bruta tots els parells possibles simulant el generador minvant i el comparem amb els bits comprovats que hem extret del prefix.
+
+Obtenció de la Flag
+Quan trobem les llavors que quadren amb el patró extret, generem el keystream complet i apliquem XOR al text xifrat sencer. La bandera apareix neta: **SoterCTF{Shr1nk1ng_g3n_bre4kabl3}**.
+
+Lliçons Apreses
+Els generadors minvants són vulnerables davant d'atacs de text pla conegut. El simple fet de descartar o "filtrar" bits de forma aleatòria no garanteix la seguretat si l'espai intern d'estats (LFSR seeds) és prou petit com per trencar-lo mitjançant una simulació de força bruta combinatòria ràpida.`
+      },
+      {
+        id: 23, category: "Forense",
+        name: "Events",
+        description: "Els comptes d'un empleat van ser robats i l'equip forense va descobrir que havia descarregat un joc sospitós. Pots ajudar a investigar i esbrinar què va passar?",
+        resolution: `Anàlisi i Reconeixement
+El binari analitzat fingia ser un joc, però sol·licitava permisos de superusuari (root), la qual cosa és molt sospitosa. Descompilant l'executable vam poder comprovar que el programa fa un "fork" per a córrer en segon pla, llegir directament del dispositiu '/dev/input/event7' i escriure les dades interceptades en un arxiu '.log' ocult. Aquest comportament és l'estàndard d'un keylogger clàssic per a Linux.
+
+Fase d'Explotació
+
+Pas 1 — Comprendre el Format d'Esdeveniments
+Les pulsacions a Linux es capturen sota l'estructura d'esdeveniments de 24 bytes que detalla moment temporal, tipus d'esdeveniment, codi de tecla i valor (pressionada o deixada anar: 1 o 0).
+
+Pas 2 — Descodificació de l'Extracció
+Fent servir Python, vam programar un analitzador que obre l'arxiu '.log' generat pel binari maliciós i el desempaqueta utilitzant 'struct.unpack("<QQHHi", data)'.
+
+Pas 3 — Reconstrucció de la Seqüència
+En haver desxifrat el format, vam creuar els codis numèrics contra un diccionari de teclat estàndard, tenint especial cura de processar quan la tecla "SHIFT" estava premuda temporalment.
+
+Obtenció de la Flag
+L'històric reconstruït després de desemmascarar l'arxiu '.log' va revelar l'escriptura extreta: **SoterCTF{k3yb0rd_ev3nts_12831721}**.
+
+Lliçons Apreses
+Els keyloggers abusen permanentment del sistema d'esdeveniments intern de Linux ('/dev/input/event*'), sovint ocultant el seu procés en segon pla sota un binari trivial. En realitzar intervencions forenses, saber desempaquetar traces crues de sistema és una habilitat fonamental.`
+      },
+      {
+        id: 24, category: "Hardware Hacking",
+        name: "Logic Gates I",
+        description: "En aquest repte se't proporciona l'entrada per a un circuit de transistors que al final produirà una única sortida de 0 o 1. Un cop tota l'entrada hagi passat pel circuit, hauries d'obtenir una llarga cadena binària.\nEn el diagrama que mostra la imatge es proporcionen quatre entrades (A, B, C i D), a les quals se'ls assignarà cada conjunt de 4 nombres prèviament separats.",
+        resolution: `Anàlisi i Reconeixement
+Aquest repte presenta un circuit lògic basat en taules de veritat. Els senyals d'entrada corresponen a combinacions de 4 bits que generen un estat final segons una funció lògica desconeguda. Després de passar tot el flux de dades, el resultat conforma una cadena binària estructurada.
+
+Fase d'Explotació
+
+Pas 1 — Comprendre la Vulnerabilitat
+En lloc de traçar i reconstruir el disseny de les portes lògiques a mà (el mètode previsible i tediós), podem tractar el circuit com una 'caixa negra'. Com que l'entrada només pren nombres de 4 bits (de 0 a 15), la funció al complet està restringida a una taula de veritat de 16 bits.
+
+Pas 2 — Força Bruta sobre la Taula Lògica
+Vam implementar un script en Python per iterar sobre les 65.536 possibles taules de 16 bits. Per a cada taula generada, traduíem el registre d'entrada per acoblar un possible flux de dades de sortida.
+
+Pas 3 — Extracció i Descodificació
+En processar cada flux binari a text llegible, vam filtrar les dades sense sentit fins a trobar una cadena codificada clarament en Base64: 'U290ZXJDVEZ7WTB1X2FyM19hd2VzMG1lX2E3X190cmFuc2lzdG9yXzFvZ2ljfQ=='.
+
+Obtenció de la Flag
+Descodificant la cadena en Base64 vam obtenir la bandera final: **SoterCTF{Y0u_ar3_awes0me_a7__transistor_1ogic}**.
+
+Lliçons Apreses
+Tot i que l'objectiu dels reptes de maquinari és forçar l'intèrpret de diagrames i portes lògiques, els espais de dades molt petits (com 2^16) obren la porta als atacs de força bruta cega. Dependre de l'"obscuritat" d'un disseny lògic sense suficient entropia matemàtica no és un xifratge segur.`
+      },
+      {
+        id: 25, category: "Hardware Hacking",
+        name: "Logic Gates II",
+        description: "En aquest repte rebràs una entrada per a un determinat conjunt de portes lògiques que, després de passar per elles, et retornarà un binari final.",
+        resolution: `Anàlisi i Reconeixement
+A diferència de la primera part, aquest circuit va ser reconstruït manualment. La lògica consta de portes simples (XOR, NOT). Cada línia d'entrada representa múltiples bits, i els bits de sortida formen un flux binari continu que acaba reconstruint un arxiu complet.
+
+Fase d'Explotació
+
+Pas 1 — Anàlisi del Circuit
+Usant un simulador de circuits (com Falstad), la lògica es va traçar manualment i es va convertir en una funció equivalent en Python. La lògica central utilitza una combinació d'inversors i portes XOR en dues etapes per filtrar les entrades 'A, B, C, D'.
+
+Pas 2 — Processar Entrada i Generar Binari
+Es va parsejar l'arxiu d'entrada que contenia grups de 4 bits separats per espais. Cada grup es va introduir en el simulador lògic en Python, produint un únic bit de sortida per grup. Aquests bits es van concatenar en una enorme cadena binària.
+
+Pas 3 — Convertir a Arxiu i Extraer Flag
+La cadena binària crua es va convertir en bytes i es va guardar al disc. Usant eines d'inspecció d'arxius ('file' o editors hexadecimals), els nombres màgics van revelar que es tractava d'una imatge JPEG. Després de renombrar la sortida a '.jpg' i obrir-la, la bandera va aparèixer visualment incrustada a la imatge: **SoterCTF{Peresoso_a1_poder}**.
+
+Lliçons Apreses
+Els reptes d'estil maquinari sovint es tradueixen directament en problemes de programació i simulació. Les combinacions XOR i NOT són molt comunes en l'ofuscació lògica. A més, els fluxos binaris continus en els CTFs sempre s'han de comprovar contra signatures d'arxius (magic bytes), ja que freqüentment encapsulen multimèdia o arxius comprimits.`
+      },
+      {
+        id: 26, category: "Criptografia",
+        name: "Code Lost in Space",
+        description: "Durant una missió crítica a l'Estació Espacial Soter, els sistemes de navegació de la nau Nebula-12 van ser xifrats per protegir-los d'intrusions. No obstant això, després d'una inesperada tempesta solar, el dispositiu que emmagatzemava les claus de desxifratge va resultar danyat. Els astronautes només van poder recuperar un arxiu xifrat i un fragment del codi font que va generar les claus.",
+        resolution: `Anàlisi i Reconeixement
+Aquest repte involucra un esquema de xifratge RSA que pateix de generació de claus determinista a causa d'un ús feble de l'aleatorietat ('random.seed()' en Python). El fragment de codi mostra que la llavor es basa en una marca de temps: 'seed = int(f"{day:02}{month:02}{year}{hour:02}{minute:02}")'. Això implica que si endevinem l'hora exacta en què es van generar, podem recrear el parell de claus RSA idèntic.
+
+Fase d'Explotació
+
+Pas 1 — Avaluar l'Espai de Cerca
+Atès que la llavor depèn de l'hora i el minut, l'espai de cerca es limita a 24 hores × 60 minuts = 1440 combinacions possibles per dia. Això converteix el problema matemàtic en un simple atac de força bruta contra la llavor del PRNG. A més, les pistes indiquen un possible desfasament horari (Alemanya CET/CEST), fet que justifica per què el minut exacte no quadra a la primera.
+
+Pas 2 — Força Bruta sobre la Llavor
+Vam desenvolupar un script per iterar a través de les 1440 combinacions d'hora i minut. Per a cada intent, inicialitzem el mòdul random de Python i generem els nombres primers 'p' i 'q' seguint la mateixa seqüència que el programa vulnerable.
+
+Obtenció de la Flag
+Quan el bucle recupera amb èxit la clau privada RSA ('d'), desxifrem l'arxiu usant PKCS1_OAEP. Així que el text pla resultant conté 'SoterCTF{', l'execució s'atura i revela: **SoterCTF{abb5da6c77414099a35c7f1fc7e70e4a}**.
+
+Lliçons Apreses
+L'RSA és matemàticament segur, però inicialitzar un generador de nombres pseudoaleatoris (PRNG) amb llavors predictibles com l'hora del sistema trenca la criptografia per complet. Una generació de claus basada en temps redueix un problema de factorització impossible a una cerca trivial d'apenes 1440 intents.`
       },
       {
         id: 19, name: "The Space Man", category: "Explotació de binaris",
