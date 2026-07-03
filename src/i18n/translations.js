@@ -612,6 +612,39 @@ Concatenating the sticker texts forms the flag: **SoterCTF{ff12d12b60b168f6c7ac1
 
 Lessons Learned
 Malware employs layered obfuscation techniques ranging from simple token replacement to standard cryptography (AES). Often, simple tricks like storing text reversed or using image-based exfiltration are highly effective anti-analysis hurdles.`
+      },
+      {
+        id: 27, category: "Web",
+        name: "Template Hunter",
+        description: "HelixCorp just launched HunterZero, its internal bug bounty platform. Inside there is a confidential report that no one outside the security team should ever see.\nTask: Register as a hunter, find a way to reach the report, and extract its content.\nhttp://194.163.178.87:6767/",
+        resolution: `Analysis and Reconnaissance
+The response headers reveal 'X-Powered-By: Express' (Node.js + Express). The '/api-docs' endpoint documents the whole design: the confidential report only lives behind 'GET /api/internal/reports/:id', restricted to the admin/triager role; regular users can only register as hunters; an automated triage bot with admin rights reviews pending tickets roughly every 15 seconds; and we can create tickets and comments on them. We cannot read the report directly — we need the bot to do it for us.
+
+Exploitation Phase
+
+Step 1 — Register and get a session
+Registering via '/register' grants a hunter session through the 'connect.sid' cookie.
+
+Step 2 — Probe for SSTI
+We create a ticket with template probes in the title and description ('{{7*7}}', '\${7*8}', '<%= 7*9 %>'). Reading the ticket back with curl shows the probes literally, unescaped but unevaluated — there is no vulnerable server-side template engine here.
+
+Step 3 — Spot AngularJS 1.6.9
+The ticket page HTML loads 'angular.min.js' and declares 'ng-app="triagerx"'. AngularJS 1.6.9 removed the expression sandbox, so '{{ }}' expressions can run arbitrary JavaScript in a real browser: this is Client-Side Template Injection (CSTI), not SSTI. curl never executes JavaScript, which is why the probes looked inert — but the triage bot renders the page in a headless browser and will evaluate them.
+
+Step 4 — Find the injectable field
+The ticket title sits outside the 'ng-app' scope, and the bot's own comments are wrapped in 'ng-non-bindable'. Our hunter comment and the ticket description, however, are inside the Angular scope with no such protection — that is our injection point.
+
+Step 5 — Build the exfiltration payload
+Using the sandbox-escape gadget '{{constructor.constructor('...')()}}', the browser's 'Function' constructor executes arbitrary JavaScript inside the bot's authenticated session: fetch the internal reports list, download the target report, and POST it back as a comment on our own ticket. Since everything happens same-origin, there is no CORS to fight, and an idempotency guard (checking for a 'PWN::' prefix) prevents an infinite comment loop.
+
+Step 6 — Trigger and wait
+Posting the payload as a comment returns the ticket to the triage queue. After roughly 15-30 seconds the bot reopens it, executes the injected script in its own browser context, and posts the report back to our ticket.
+
+Final Extraction
+Reading our ticket's comments reveals one prefixed with 'PWN::' containing HelixCorp's confidential RCE report in full, ending with the flag: **SoterCTF{cst1_2_adm1n_p1v0t_h3l1xc0rp_rc3_r3p0rt}**.
+
+Lessons Learned
+Never run end-of-life AngularJS versions (1.6.x removed the expression sandbox entirely). Never render untrusted content inside a client-side template scope — apply strict escaping or 'ng-non-bindable' to all user-controlled content, not just the bot's own messages. Isolate the triage bot's browser from sensitive session cookies, and segment internal APIs ('/api/internal/*') away from any origin that renders user content.`
       }
     ]
   },
@@ -1172,6 +1205,39 @@ Al ensamblar las piezas encontradas en el fondo de estrellas obtenemos: **SoterC
 
 Lecciones Aprendidas
 La ofuscación por capas entrelazadas busca dificultar el análisis paso a paso. Herramientas poco convencionales (como voltear cadenas cifradas o enviar credenciales por stickers de Telegram) son tácticas reales y efectivas usadas en las redes de bots modernas.`
+      },
+      {
+        id: 27, category: "Web",
+        name: "Template Hunter",
+        description: "HelixCorp acaba de estrenar HunterZero, su plataforma interna de bug bounty. Dentro hay un informe confidencial que no debería ver nadie ajeno al equipo de seguridad.\nTarea: Regístrate como hunter, busca la forma de llegar al informe y extrae su contenido.\nhttp://194.163.178.87:6767/",
+        resolution: `Análisis y Reconocimiento
+Las cabeceras revelan 'X-Powered-By: Express' (Node.js + Express). El endpoint '/api-docs' documenta todo el diseño del reto: el informe confidencial solo es accesible con rol admin/triager vía 'GET /api/internal/reports/:id'; los usuarios normales solo pueden registrarse como hunters; existe un bot de triage automático con rol admin que revisa los tickets pendientes cada ~15 segundos; y podemos crear tickets y comentarios en ellos. No podemos leer el informe directamente, necesitamos que el bot lo haga por nosotros.
+
+Fase de Explotación
+
+Paso 1 — Registro y sesión
+Nos registramos vía '/register' para obtener el rol hunter y la cookie de sesión 'connect.sid'.
+
+Paso 2 — Sondeo de SSTI
+Creamos un ticket con sondas de plantillas en título y descripción ('{{7*7}}', '\${7*8}', '<%= 7*9 %>'). Al leer el ticket con curl las sondas aparecen literales, sin evaluar: no hay ningún motor de plantillas de servidor vulnerable aquí.
+
+Paso 3 — Detectar AngularJS 1.6.9
+El HTML del ticket carga 'angular.min.js' y declara 'ng-app="triagerx"'. AngularJS 1.6.9 eliminó el sandbox de expresiones, así que las expresiones '{{ }}' pueden ejecutar JavaScript arbitrario en un navegador real: esto es Client-Side Template Injection (CSTI), no SSTI. curl nunca ejecuta JavaScript, por eso las sondas parecían inertes, pero el bot de triage renderiza la página en un navegador headless y sí las evalúa.
+
+Paso 4 — Encontrar el campo inyectable
+El título del ticket queda fuera del scope 'ng-app', y los propios comentarios del bot están envueltos en 'ng-non-bindable'. Sin embargo, nuestro comentario de hunter y la descripción del ticket sí están dentro del scope de Angular sin esa protección: ese es nuestro punto de inyección.
+
+Paso 5 — Construir el payload de exfiltración
+Usando el gadget de escape del sandbox '{{constructor.constructor('...')()}}', el constructor 'Function' del navegador ejecuta JavaScript arbitrario dentro de la sesión autenticada del bot: lee la lista de informes internos, descarga el informe objetivo y lo publica de vuelta como comentario en nuestro propio ticket. Como todo ocurre same-origin, no hay que lidiar con CORS, y una guarda de idempotencia (comprobando un prefijo 'PWN::') evita un bucle infinito de comentarios.
+
+Paso 6 — Disparar y esperar
+Publicar el payload como comentario devuelve el ticket a la cola de triage. Tras ~15-30 segundos el bot lo reabre, ejecuta el script inyectado en su propio contexto de navegador y publica el informe de vuelta en nuestro ticket.
+
+Extracción Final
+Al leer los comentarios de nuestro ticket aparece uno con prefijo 'PWN::' que contiene el informe confidencial de RCE de HelixCorp completo, terminando con la flag: **SoterCTF{cst1_2_adm1n_p1v0t_h3l1xc0rp_rc3_r3p0rt}**.
+
+Lecciones Aprendidas
+Nunca usar versiones obsoletas de AngularJS (1.6.x eliminó por completo el sandbox de expresiones). Nunca renderizar contenido no confiable dentro del scope de una plantilla de cliente: aplicar un escapado estricto o 'ng-non-bindable' a todo contenido controlado por usuarios, no solo a los mensajes del propio bot. Aislar el navegador del bot de cookies de sesión sensibles, y segmentar las APIs internas ('/api/internal/*') fuera del alcance de cualquier origen que renderice contenido de usuario.`
       }
     ]
   },
@@ -1769,6 +1835,39 @@ En acoblar les peces trobades al fons d'estrelles obtenim: **SoterCTF{ff12d12b60
 
 Lliçons Apreses
 L'ofuscació per capes entrellaçades busca dificultar l'anàlisi pas a pas. Eines poc convencionals (com capgirar cadenes xifrades o enviar credencials per stickers de Telegram) són tàctiques reals i efectives utilitzades a les xarxes de bots modernes.`
+      },
+      {
+        id: 27, category: "Web",
+        name: "Template Hunter",
+        description: "HelixCorp acaba d'estrenar HunterZero, la seva plataforma interna de bug bounty. Dins hi ha un informe confidencial que no hauria de veure ningú aliè a l'equip de seguretat.\nTasca: Registra't com a hunter, busca la manera d'arribar a l'informe i extreu-ne el contingut.\nhttp://194.163.178.87:6767/",
+        resolution: `Anàlisi i Reconeixement
+Les capçaleres revelen 'X-Powered-By: Express' (Node.js + Express). L'endpoint '/api-docs' documenta tot el disseny del repte: l'informe confidencial només és accessible amb rol admin/triager via 'GET /api/internal/reports/:id'; els usuaris normals només es poden registrar com a hunters; hi ha un bot de triatge automàtic amb rol admin que revisa els tiquets pendents cada ~15 segons; i podem crear tiquets i comentaris. No podem llegir l'informe directament, necessitem que el bot ho faci per nosaltres.
+
+Fase d'Explotació
+
+Pas 1 — Registre i sessió
+Ens registrem via '/register' per obtenir el rol hunter i la cookie de sessió 'connect.sid'.
+
+Pas 2 — Sondeig de SSTI
+Creem un tiquet amb sondes de plantilles al títol i descripció ('{{7*7}}', '\${7*8}', '<%= 7*9 %>'). En llegir el tiquet amb curl les sondes apareixen literals, sense avaluar: no hi ha cap motor de plantilles de servidor vulnerable aquí.
+
+Pas 3 — Detectar AngularJS 1.6.9
+L'HTML del tiquet carrega 'angular.min.js' i declara 'ng-app="triagerx"'. AngularJS 1.6.9 va eliminar el sandbox d'expressions, així que les expressions '{{ }}' poden executar JavaScript arbitrari en un navegador real: això és Client-Side Template Injection (CSTI), no SSTI. curl mai executa JavaScript, per això les sondes semblaven inertes, però el bot de triatge renderitza la pàgina en un navegador headless i sí les avalua.
+
+Pas 4 — Trobar el camp injectable
+El títol del tiquet queda fora de l'scope 'ng-app', i els propis comentaris del bot estan embolicats en 'ng-non-bindable'. En canvi, el nostre comentari de hunter i la descripció del tiquet sí estan dins de l'scope d'Angular sense aquesta protecció: aquest és el nostre punt d'injecció.
+
+Pas 5 — Construir el payload d'exfiltració
+Usant el gadget d'escapament del sandbox '{{constructor.constructor('...')()}}', el constructor 'Function' del navegador executa JavaScript arbitrari dins de la sessió autenticada del bot: llegeix la llista d'informes interns, descarrega l'informe objectiu i el publica de tornada com a comentari al nostre propi tiquet. Com que tot passa same-origin, no cal lidiar amb CORS, i una guarda d'idempotència (comprovant un prefix 'PWN::') evita un bucle infinit de comentaris.
+
+Pas 6 — Disparar i esperar
+Publicar el payload com a comentari retorna el tiquet a la cua de triatge. Després d'uns ~15-30 segons el bot el reobre, executa l'script injectat en el seu propi context de navegador i publica l'informe de tornada al nostre tiquet.
+
+Extracció Final
+En llegir els comentaris del nostre tiquet apareix un comentari amb prefix 'PWN::' que conté l'informe confidencial de RCE de HelixCorp complet, acabant amb la flag: **SoterCTF{cst1_2_adm1n_p1v0t_h3l1xc0rp_rc3_r3p0rt}**.
+
+Lliçons Apreses
+Mai utilitzar versions obsoletes d'AngularJS (1.6.x va eliminar per complet el sandbox d'expressions). Mai renderitzar contingut no confiable dins de l'scope d'una plantilla de client: aplicar un escapament estricte o 'ng-non-bindable' a tot contingut controlat per usuaris, no només als missatges del propi bot. Aïllar el navegador del bot de cookies de sessió sensibles, i segmentar les APIs internes ('/api/internal/*') fora de l'abast de qualsevol origen que renderitzi contingut d'usuari.`
       }
     ]
   }

